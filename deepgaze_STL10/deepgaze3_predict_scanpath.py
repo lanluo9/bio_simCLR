@@ -19,6 +19,7 @@ from scipy.special import logsumexp
 from tqdm import tqdm
 import sys
 import gc
+from IPython.display import clear_output
 
 import torch
 from torchvision import datasets, transforms
@@ -59,7 +60,7 @@ def deepgaze2_pred(image, model=model_deepgaze2):
   centerbias -= logsumexp(centerbias) # renormalize log density
   centerbias_tensor = torch.tensor([centerbias]).to(DEVICE)
 
-  image_tensor = torch.tensor([image]).to(DEVICE) # .transpose(2, 0, 1)
+  image_tensor = torch.tensor([image.transpose(2, 0, 1)]).to(DEVICE)
   # print(image_tensor.shape)
   log_density_prediction = model(image_tensor, centerbias_tensor) # predicted log density for the next fixation location 
 
@@ -68,6 +69,7 @@ def deepgaze2_pred(image, model=model_deepgaze2):
   torch.cuda.empty_cache()
   
   return log_density_prediction
+
 
 # log_density_prediction = deepgaze2_pred(face())
 # f, axs = plt.subplots(nrows=1, ncols=2, figsize=(8, 3))
@@ -90,6 +92,7 @@ def draw_fix_from_pred(log_density_prediction, nfix=1):
   fixations_y = adjusted_index[0] # height = axis 0 = y
 
   return fixations_x, fixations_y
+
 
 # fixations_x, fixations_y = draw_fix_from_pred(log_density_prediction, nfix=4)
 # fixation_history_x = fixations_x
@@ -122,7 +125,7 @@ def deepgaze3_pred(image, fixation_history_x, fixation_history_y, model=model_de
   centerbias -= logsumexp(centerbias) # renormalize log density
   centerbias_tensor = torch.tensor([centerbias]).to(DEVICE)
 
-  image_tensor = torch.tensor([image]).to(DEVICE) # .transpose(2, 0, 1)
+  image_tensor = torch.tensor([image.transpose(2, 0, 1)]).to(DEVICE) 
   x_hist_tensor = torch.tensor([fixation_history_x[model.included_fixations]]).to(DEVICE)
   y_hist_tensor = torch.tensor([fixation_history_x[model.included_fixations]]).to(DEVICE)
   log_density_prediction = model(image_tensor, centerbias_tensor, x_hist_tensor, y_hist_tensor)
@@ -162,82 +165,54 @@ def deepgaze3_pred(image, fixation_history_x, fixation_history_y, model=model_de
 
 dataset = datasets.STL10("Dataset", split="unlabeled", download=True, transform=transforms.ToTensor(),) # download takes 2-4 min
 dataloader = DataLoader(dataset, batch_size=1, shuffle=False, drop_last=False) #TODO: batch size back to larger (75)
-# scanpath_arr = np.zeros((len(dataset), 1, 96, 96), dtype=np.float32)
-# print(scanpath_arr.shape)
 
+nfix_total = 20
+scanpath_arr = np.zeros((len(dataset), nfix_total, 2)) # n img, n fix per img, x & y
+
+counter = 0
 for images, _ in tqdm(dataloader):
-  print(images.shape) # singleton, chan, x, y
-
-  img_large = F.interpolate(images.to('cuda'), [256, 256]) # interpolate to match precomputed centerbias log density (from MIT1003)
-  # img_large = images
-  # print(img_large.shape)
-
-  # img_large = torch.transpose(img_large, 0, 3)
-  # img_large = torch.transpose(img_large, 1, 2)
-  # img_large = torch.transpose(img_large, 0, 1)
-  # print(img_large.shape) # x, y, channel, batch_size
-
-  # img_large = torch.transpose(img_large, 1, 3)
-  # img_large = torch.transpose(img_large, 1, 2)
-  print(img_large.shape) # batch_size x height x width x 3
+  # print(images.shape) # singleton, chan, x, y
+  img_large = F.interpolate(images.to('cuda'), [256, 256]) # interpolate to increase scanpath pred perf, 256 seems best
+  img_large = torch.transpose(img_large, 1, 3)
+  img_large = torch.transpose(img_large, 1, 2)
+  print(img_large.shape) # batch_size x height x width x 3 # TODO: increase batch size
 
   images_np = img_large.cpu().detach().numpy() # tensor to np
-  del images, img_large
+  images_np = np.squeeze(images_np) # height x width x 3
+  del img_large; torch.cuda.empty_cache()
+  # print(images_np.shape, type(images_np))
+  # plt.matshow(images_np[:,:,0])
+
+  log_density_prediction = deepgaze2_pred(images_np)
+  fixations_x, fixations_y = draw_fix_from_pred(log_density_prediction, nfix=4)
+  del log_density_prediction
   torch.cuda.empty_cache()
+  fixation_history_x, fixation_history_y, log_density_prediction = deepgaze3_pred(images_np, \
+                                                                                  fixations_x, fixations_y, \
+                                                                                  nfix_total=nfix_total)
+  scanpath_arr[counter,:,0] = fixation_history_x # width
+  scanpath_arr[counter,:,1] = fixation_history_y # height
 
-  images_np = np.squeeze(images_np)
-  print(images_np.shape)
-  plt.matshow(images_np[0,:,:])
-  break
+  gc.collect()
+  torch.cuda.empty_cache()
+  # clear_output(wait=True)
+  # print(torch.cuda.is_available())
+  # print(torch.cuda.memory_allocated() / 1024**3)
+  # print(torch.cuda.memory_reserved() / 1024**3)
 
-import deepgaze_pytorch
-log_density_prediction = deepgaze2_pred(images_np) # uses 7.73 GB GPU RAM up til now
-fixations_x, fixations_y = draw_fix_from_pred(log_density_prediction, nfix=4)
-del log_density_prediction
-torch.cuda.empty_cache()
-fixation_history_x, fixation_history_y, log_density_prediction = deepgaze3_pred(images_np, \
-                                                                                fixations_x, fixations_y, \
-                                                                                nfix_total=20)
-gc.collect()
-torch.cuda.empty_cache()
-print(torch.cuda.is_available())
-print(torch.cuda.memory_allocated() / 1024**3)
-print(torch.cuda.memory_reserved() / 1024**3)
+  counter += 1
+  # if counter > 5:
+  #   break
 
-image = images_np
-centerbias = zoom(centerbias_template, \
-                  (image.shape[0]/centerbias_template.shape[0], image.shape[1]/centerbias_template.shape[1]), \
-                  order=0, mode='nearest') # rescale to match image size
-centerbias -= logsumexp(centerbias) # renormalize log density
-centerbias_tensor = torch.tensor([centerbias]).to(DEVICE)
+  np.save("/content/stl10_unlabeled_scanpath_deepgaze.npy", scanpath_arr)
 
-model = deepgaze_pytorch.DeepGazeIIE(pretrained=True).to(DEVICE)
-image_tensor = torch.tensor([image]).to(DEVICE) # .transpose(2, 0, 1)
-image_tensor = torch.squeeze(image_tensor)
-print(image_tensor.shape)
-log_density_prediction = model(image_tensor, centerbias_tensor) # predicted log density for the next fixation location
+# f, axs = plt.subplots(nrows=1, ncols=2, figsize=(8, 3))
+# axs[0].imshow(images_np)
+# axs[0].plot(fixation_history_x, fixation_history_y, 'o-', color='red')
+# axs[0].scatter(fixation_history_x[-1], fixation_history_y[-1], 100, color='yellow', zorder=100)
+# axs[0].set_axis_off()
 
-f, axs = plt.subplots(nrows=1, ncols=2, figsize=(8, 3))
-axs[0].imshow(images_np)
-axs[0].plot(fixation_history_x, fixation_history_y, 'o-', color='red')
-axs[0].scatter(fixation_history_x[-1], fixation_history_y[-1], 100, color='yellow', zorder=100)
-axs[0].set_axis_off()
-
-axs[1].matshow(log_density_prediction.detach().cpu().numpy()[0, 0])  # first image in batch, first (and only) channel
-axs[1].plot(fixation_history_x, fixation_history_y, 'o-', color='red')
-axs[1].scatter(fixation_history_x[-1], fixation_history_y[-1], 100, color='yellow', zorder=100)
-axs[1].set_axis_off()
-
-# csr = 0
-# # for images, _ in tqdm(dataloader):
-# #   img_tsr = F.interpolate(images.to('cuda'), [512, 512]) 
-
-# #   with torch.no_grad():
-# #     salmap = model(img_tsr)
-
-#   # salmap_small = F.interpolate(salmap, [96, 96]).cpu().numpy()
-#   # csr_end = csr + images.shape[0]
-#   # salmap_arr[csr:csr_end, :, :, :] = salmap_small
-#   # csr = csr_end
-
-# np.save("/content/Dataset/stl10_unlabeled_salmaps_salicon.npy", salmap_arr)
+# axs[1].matshow(log_density_prediction.detach().cpu().numpy()[0, 0])  # first image in batch, first (and only) channel
+# axs[1].plot(fixation_history_x, fixation_history_y, 'o-', color='red')
+# axs[1].scatter(fixation_history_x[-1], fixation_history_y[-1], 100, color='yellow', zorder=100)
+# axs[1].set_axis_off()
