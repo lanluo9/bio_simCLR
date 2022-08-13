@@ -39,8 +39,7 @@ import torch.nn.functional as F
 sys.path.append("/content/DeepGaze")
 import deepgaze_pytorch
 
-!wget https://github.com/matthias-k/DeepGaze/releases/download/v1.0.0/centerbias_mit1003.npy 
-# precomputed centerbias log density (from MIT1003) over a 1024x1024 image
+!wget https://github.com/matthias-k/DeepGaze/releases/download/v1.0.0/centerbias_mit1003.npy
 centerbias_template = np.load('centerbias_mit1003.npy') # load precomputed centerbias log density (from MIT1003) over a 1024x1024 image
 DEVICE = 'cuda'
 
@@ -51,6 +50,8 @@ DEVICE = 'cuda'
 """
 
 model_deepgaze2 = deepgaze_pytorch.DeepGazeIIE(pretrained=True).to(DEVICE)
+model_deepgaze3 = deepgaze_pytorch.DeepGazeIII(pretrained=True).to(DEVICE)
+
 
 def deepgaze2_pred(image, model=model_deepgaze2):
   '''use deepgaze 2e to predict a fixation distribution (without fixation history input)'''
@@ -61,7 +62,6 @@ def deepgaze2_pred(image, model=model_deepgaze2):
   centerbias_tensor = torch.tensor([centerbias]).to(DEVICE)
 
   image_tensor = torch.tensor([image.transpose(2, 0, 1)]).to(DEVICE)
-  # print(image_tensor.shape)
   log_density_prediction = model(image_tensor, centerbias_tensor) # predicted log density for the next fixation location 
 
   del model, centerbias_tensor, image_tensor
@@ -70,13 +70,6 @@ def deepgaze2_pred(image, model=model_deepgaze2):
   
   return log_density_prediction
 
-
-# log_density_prediction = deepgaze2_pred(face())
-# f, axs = plt.subplots(nrows=1, ncols=2, figsize=(8, 3))
-# axs[0].imshow(face())
-# axs[0].set_axis_off()
-# axs[1].matshow(log_density_prediction.detach().cpu().numpy()[0, 0])  # first image in batch, first (and only) channel
-# axs[1].set_axis_off()
 
 def draw_fix_from_pred(log_density_prediction, nfix=1):
   '''draw 4 fixations to fake a fixation history'''
@@ -94,23 +87,12 @@ def draw_fix_from_pred(log_density_prediction, nfix=1):
   return fixations_x, fixations_y
 
 
-# fixations_x, fixations_y = draw_fix_from_pred(log_density_prediction, nfix=4)
-# fixation_history_x = fixations_x
-# fixation_history_y = fixations_y
-
-# min 4 fixations in history: https://github.com/matthias-k/DeepGaze/blob/c33b89f08016e41e68cec4e4d9f1a73a14211386/deepgaze_pytorch/deepgaze3.py#L106
-# `included_fixations=[-1, -2, -3, -4]`
-# if more fixation points are provided but always at similar positions, the model always stays at the same spot
-# TODO: ensure 4 fixations are far away from each other / inhibition of return
-
-model_deepgaze3 = deepgaze_pytorch.DeepGazeIII(pretrained=True).to(DEVICE)
-
 def deepgaze3_pred(image, fixation_history_x, fixation_history_y, model=model_deepgaze3, nfix_total=20):
   '''
   feed fake fixation history to deepgaze 3 to simulate rest of the scanpath
   use log_density_prediction to draw next fixation, update log_density_prediction, until reach nfix_total
   arg:
-    image
+    image: np.array of shape (xpix, ypix, channel)
     fixation_history_x
     fixation_history_y
     nfix_total: total fixation needed per image, including 4 steps of fake fixation history
@@ -147,6 +129,23 @@ def deepgaze3_pred(image, fixation_history_x, fixation_history_y, model=model_de
 
   return fixation_history_x, fixation_history_y, log_density_prediction
 
+# log_density_prediction = deepgaze2_pred(face())
+# f, axs = plt.subplots(nrows=1, ncols=2, figsize=(8, 3))
+# axs[0].imshow(face())
+# axs[0].set_axis_off()
+# axs[1].matshow(log_density_prediction.detach().cpu().numpy()[0, 0])  # first image in batch, first (and only) channel
+# axs[1].set_axis_off()
+
+
+# fixations_x, fixations_y = draw_fix_from_pred(log_density_prediction, nfix=4)
+# fixation_history_x = fixations_x
+# fixation_history_y = fixations_y
+
+# min 4 fixations in history: https://github.com/matthias-k/DeepGaze/blob/c33b89f08016e41e68cec4e4d9f1a73a14211386/deepgaze_pytorch/deepgaze3.py#L106
+# `included_fixations=[-1, -2, -3, -4]`
+# if more fixation points are provided but always at similar positions, the model always stays at the same spot
+# TODO: ensure 4 fixations are far away from each other / inhibition of return
+
 
 # fixation_history_x, fixation_history_y, log_density_prediction = deepgaze3_pred(face(), \
 #                                                                                 fixation_history_x, fixation_history_y, \
@@ -161,32 +160,50 @@ def deepgaze3_pred(image, fixation_history_x, fixation_history_y, model=model_de
 # axs[1].scatter(fixation_history_x[-1], fixation_history_y[-1], 100, color='yellow', zorder=100)
 # axs[1].set_axis_off()
 
+
+# # after running the pipeline down below:
+# f, axs = plt.subplots(nrows=1, ncols=2, figsize=(8, 3))
+# axs[0].imshow(images_np)
+# axs[0].plot(fixation_history_x, fixation_history_y, 'o-', color='red')
+# axs[0].scatter(fixation_history_x[-1], fixation_history_y[-1], 100, color='yellow', zorder=100)
+# axs[0].set_axis_off()
+# axs[1].matshow(log_density_prediction.detach().cpu().numpy()[0, 0])  # first image in batch, first (and only) channel
+# axs[1].plot(fixation_history_x, fixation_history_y, 'o-', color='red')
+# axs[1].scatter(fixation_history_x[-1], fixation_history_y[-1], 100, color='yellow', zorder=100)
+# axs[1].set_axis_off()
+
 """# deepgaze try on STL10"""
 
-dataset = datasets.STL10("Dataset", split="unlabeled", download=True, transform=transforms.ToTensor(),) # download takes 2-4 min
-dataloader = DataLoader(dataset, batch_size=1, shuffle=False, drop_last=False) #TODO: batch size back to larger (75)
+# %%timeit
+
+dataset = datasets.STL10("Dataset", split="unlabeled", download=True, \
+                         transform=transforms.ToTensor(),) # download takes 2-4 min
+dataloader = DataLoader(dataset, batch_size=1, shuffle=False, \
+                        drop_last=False) #TODO: batch size back to larger (75)
 
 nfix_total = 20
 scanpath_arr = np.zeros((len(dataset), nfix_total, 2)) # n img, n fix per img, x & y
 
 counter = 0
-for images, _ in tqdm(dataloader):
-  # print(images.shape) # singleton, chan, x, y
+counter_start = 0
+counter_end = len(dataset) / 5
+
+for images, _ in tqdm(dataloader): # print(images.shape) # singleton, chan, x, y
+  if counter < counter_start:
+    pass
+
   img_large = F.interpolate(images.to('cuda'), [256, 256]) # interpolate to increase scanpath pred perf, 256 seems best
   img_large = torch.transpose(img_large, 1, 3)
-  img_large = torch.transpose(img_large, 1, 2)
-  print(img_large.shape) # batch_size x height x width x 3 # TODO: increase batch size
+  img_large = torch.transpose(img_large, 1, 2) # print(img_large.shape) # batch_size x height x width x 3 
+  # TODO: increase batch size
 
   images_np = img_large.cpu().detach().numpy() # tensor to np
-  images_np = np.squeeze(images_np) # height x width x 3
-  del img_large; torch.cuda.empty_cache()
-  # print(images_np.shape, type(images_np))
-  # plt.matshow(images_np[:,:,0])
+  images_np = np.squeeze(images_np) # print(images_np.shape, type(images_np)) # height x width x 3
+  # plt.matshow(images_np[:,:,0]) # ensure img is standing upright
 
   log_density_prediction = deepgaze2_pred(images_np)
   fixations_x, fixations_y = draw_fix_from_pred(log_density_prediction, nfix=4)
-  del log_density_prediction
-  torch.cuda.empty_cache()
+  del img_large, log_density_prediction; torch.cuda.empty_cache()
   fixation_history_x, fixation_history_y, log_density_prediction = deepgaze3_pred(images_np, \
                                                                                   fixations_x, fixations_y, \
                                                                                   nfix_total=nfix_total)
@@ -201,18 +218,16 @@ for images, _ in tqdm(dataloader):
   # print(torch.cuda.memory_reserved() / 1024**3)
 
   counter += 1
-  # if counter > 5:
-  #   break
+  if counter >= counter_end: # result doesn't contain endpoint, only contain start point
+    break
 
-  np.save("/content/stl10_unlabeled_scanpath_deepgaze.npy", scanpath_arr)
+np.save(f"/content/stl10_unlabeled_scanpath_deepgaze_{counter_start}_{counter_end}.npy", scanpath_arr)
 
-# f, axs = plt.subplots(nrows=1, ncols=2, figsize=(8, 3))
-# axs[0].imshow(images_np)
-# axs[0].plot(fixation_history_x, fixation_history_y, 'o-', color='red')
-# axs[0].scatter(fixation_history_x[-1], fixation_history_y[-1], 100, color='yellow', zorder=100)
-# axs[0].set_axis_off()
+# %time
+# counter = 0
+# for images, _ in tqdm(dataloader): # print(images.shape) # singleton, chan, x, y
+#   counter += 1
+#   if counter > 100000 / 5 * 4:
+#     break
 
-# axs[1].matshow(log_density_prediction.detach().cpu().numpy()[0, 0])  # first image in batch, first (and only) channel
-# axs[1].plot(fixation_history_x, fixation_history_y, 'o-', color='red')
-# axs[1].scatter(fixation_history_x[-1], fixation_history_y[-1], 100, color='yellow', zorder=100)
-# axs[1].set_axis_off()
+# 30.1/5 * 100000 / 3600/24, 132/24 # 5-7 days to run this if batch size = 1, without parallelization
