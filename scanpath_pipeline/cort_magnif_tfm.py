@@ -190,9 +190,13 @@ def radial_quad_isotrop_gridfun(imgtsr, pnt, fov=20, K=20, cover_ratio=None):
     RadDistTfm = lambda R: (R < fov) * R + \
         (R > fov) * ((R + K) ** 2 / 2 / (fov + K) + fov - (fov + K) / 2)
 
-    fov_color = 130/96 # 1 deg will be colored
+    fov_color = fov # colored radius = foveation radius
+    # RadDistColor = lambda R: (R < fov_color) * 1 + \
+    #         (R > fov_color) * (1.161 * np.exp(-0.189 * (R-fov_color)) + 0.063) 
+    # this func matches cone dens & assume fov_color = fov = 20 pix <= 2 deg, but decreases too rapidly
     RadDistColor = lambda R: (R < fov_color) * 1.22 + \
-            (R > fov_color) * (1.161 * np.exp(-2.459 * R/600) + 0.063)
+            (R > fov_color) * (1.161 * np.exp(-0.0189 * (R-fov_color)) + 0.063)
+    # exponential fit comes from foveate_augment_color_falloff.ipynb
     # TODO: implement saturation falloff towards the peripheral retina, matching rod density (flat peak at center due to high cone density)
 
     ecc_tfm = RadDistTfm(ecc, )
