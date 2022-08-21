@@ -36,19 +36,27 @@ def get_RandomMagnifTfm(grid_generator="radial_quad_isotrop", bdr=16, fov=20, K=
 
     def randomMagnif(imgtsr, logdensity=None, scanpath_idx=None):
         _, H, W = imgtsr.shape
-        if sal_sample and logdensity is not None:
-            # print("sample with saliency")
-            density = torch.exp((logdensity - logdensity.max()) / sample_temperature)
-            # set the border density to be 0,
-            density_mat = torch.zeros_like(density[0, 0, :, :])
-            density_mat[bdr:H - bdr, bdr: W - bdr] = density[0, 0, bdr:H - bdr, bdr: W - bdr]
-            # sample from density
-            flat_idx = torch.multinomial(density_mat.flatten(), 1, replacement=True).cpu()
-            cnt_coord = unravel_indices(flat_idx, density_mat.shape)
-            pY, pX = cnt_coord[0, 0].item(), cnt_coord[0, 1].item()
-
-            if scanpath_idx is not None:
-              pX, pY = scanpath_idx# [2, :] # shape of (nfix,2)
+        if scanpath_idx is not None:
+          pX, pY = scanpath_idx
+          # if pX < bdr: # forcing out-of-range x,y coordinates to be within border results in too many borderline fixation points
+          #   pX = bdr # TODO: during scanpath prediction, implement inhibition of return & borderline discard
+          # elif pX > W-bdr:
+          #   pX = W-bdr
+          # if pY < bdr:
+          #   pY = bdr
+          # elif pY > H-bdr:
+          #   pY = W-bdr
+          if (pX < bdr) or (pX > W-bdr) or (pY < bdr) or (pY > H-bdr): # out of border fixation -> substitute w saliency sampling
+            if sal_sample and logdensity is not None:
+                # print("sample with saliency")
+                density = torch.exp((logdensity - logdensity.max()) / sample_temperature)
+                # set the border density to be 0,
+                density_mat = torch.zeros_like(density[0, 0, :, :])
+                density_mat[bdr:H - bdr, bdr: W - bdr] = density[0, 0, bdr:H - bdr, bdr: W - bdr]
+                # sample from density
+                flat_idx = torch.multinomial(density_mat.flatten(), 1, replacement=True).cpu()
+                cnt_coord = unravel_indices(flat_idx, density_mat.shape)
+                pY, pX = cnt_coord[0, 0].item(), cnt_coord[0, 1].item()
         else:
             pY = np.random.randint(bdr, H - bdr)
             pX = np.random.randint(bdr, W - bdr)

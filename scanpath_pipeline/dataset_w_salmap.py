@@ -155,7 +155,7 @@ class Contrastive_STL10_w_CortMagnif(Dataset):
                                mmap_mode="r" if memmap else None)
         assert len(self.dataset) == self.salmaps.shape[0]
 
-        self.scanpath_arr = np.load(join(dataset_dir, "fake_scanpath.npy"),
+        self.scanpath_arr = np.load(join(dataset_dir, "stl10_unlabeled_scanpath_deepgaze.npy"),
                                mmap_mode="r" if memmap else None)
 
         self.root_dir = dataset_dir
@@ -175,6 +175,11 @@ class Contrastive_STL10_w_CortMagnif(Dataset):
         return len(self.dataset)
 
     def __getitem__(self, idx):
+        if not isinstance(idx, int):
+          epoch_idx = idx[-1]
+          print(f'__getitem__ get epoch number {epoch_idx}')
+          idx = idx[0]
+
         img, label = self.dataset.__getitem__(idx) # img is PIL.Image, label is xxxx
         salmap = self.salmaps[idx, :, :, :].astype('float')  # numpy.ndarray
         salmap_tsr = torch.tensor(salmap).unsqueeze(0).float()  #F.interpolate(, [96, 96])
