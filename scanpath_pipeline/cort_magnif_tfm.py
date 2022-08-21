@@ -60,6 +60,7 @@ def get_RandomMagnifTfm(grid_generator="radial_quad_isotrop", bdr=16, fov=20, K=
         else:
             pY = np.random.randint(bdr, H - bdr)
             pX = np.random.randint(bdr, W - bdr)
+        # print(pX, pY)
         return img_cortical_magnif_tsr(imgtsr, (pY, pX), grid_func, demo=False)  # debug Oct.7th
 
     return randomMagnif

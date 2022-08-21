@@ -140,7 +140,7 @@ class Contrastive_STL10_w_CortMagnif(Dataset):
     def __init__(self, dataset_dir=r"/scratch1/fs1/crponce/Datasets", \
         transform=None, split="unlabeled", n_views=2,
         crop=False, magnif=False, sal_sample=False, sal_control=False,
-        memmap=False):
+        memmap=False, views_by_epoch=None):
         """
         Args:
             dataset_dir (string): Directory with all the images. E:\Datasets
@@ -157,6 +157,8 @@ class Contrastive_STL10_w_CortMagnif(Dataset):
 
         self.scanpath_arr = np.load(join(dataset_dir, "stl10_unlabeled_scanpath_deepgaze.npy"),
                                mmap_mode="r" if memmap else None)
+        self.scanpath_arr = np.floor(self.scanpath_arr / 255 * 95)
+        self.views_by_epoch = views_by_epoch 
 
         self.root_dir = dataset_dir
         self.crop = crop
@@ -170,27 +172,35 @@ class Contrastive_STL10_w_CortMagnif(Dataset):
         else:
             self.transform = self.get_simclr_pre_magnif_transform(96, s=1, blur=True, crop=self.crop, )  # default transform pipeline.
         self.n_views = n_views
+        self.current_epoch = 0
 
     def __len__(self):
         return len(self.dataset)
+    def set_epoch(self, epoch_id):
+        self.current_epoch = epoch_id
+        print(f'set current epoch to {epoch_id}')
 
     def __getitem__(self, idx):
-        if not isinstance(idx, int):
-          epoch_idx = idx[-1]
-          print(f'__getitem__ get epoch number {epoch_idx}')
+        if not isinstance(idx, int): # if index is not just an int, but longer (a list)
+          # epoch_idx = idx[-1] # then it contains epoch number
+          epoch_idx = self.current_epoch
           idx = idx[0]
+          # print(f'__getitem__ get epoch number {epoch_idx}, image no.{idx}')
+        else:
+          epoch_idx = self.current_epoch
+          # print(f'single index. get current epoch number {epoch_idx}')
 
         img, label = self.dataset.__getitem__(idx) # img is PIL.Image, label is xxxx
         salmap = self.salmaps[idx, :, :, :].astype('float')  # numpy.ndarray
         salmap_tsr = torch.tensor(salmap).unsqueeze(0).float()  #F.interpolate(, [96, 96])
 
-        scanpath_idx = self.scanpath_arr[idx, :, :] # index into nimg. where to index into nfix?
+        scanpath_idx = self.scanpath_arr[idx, :, :]
 
         if self.sal_control: 
             print("Use flat salincy map as control")
             salmap_tsr = torch.ones([1,1,96,96]).float()
 
-        views = [img for i in range(self.n_views)] # [img,img,img]
+        views = [img for i in range(self.n_views)]
 
         if self.transform:
             imgs = [self.transform(cropview) for cropview in views]
@@ -198,6 +208,17 @@ class Contrastive_STL10_w_CortMagnif(Dataset):
             imgs = views
 
         if self.magnif and self.magnifier is not None:
+          if (self.n_views == 2) and (~np.isnan(epoch_idx)):
+            # print(f'epoch is {epoch_idx}, image is {idx}')
+            # print(scanpath_idx[0,:])
+            # print(scanpath_idx[7,:])
+            finalviews = [self.magnifier(imgs[i], salmap_tsr, \
+                          scanpath_idx[self.views_by_epoch(i, epoch_idx),:]) \
+                          for i in range(self.n_views)]
+            # print('views_by_epoch function found\n')
+          else:
+            print(idx)
+            # print('no epoch, only use image index to determine views\n')
             # finalviews = [self.magnifier(img, salmap_tsr, scanpath_idx) for img in imgs]
             finalviews = [self.magnifier(imgs[i], salmap_tsr, scanpath_idx[i,:]) for i in range(self.n_views)]
         else:
