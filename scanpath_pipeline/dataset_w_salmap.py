@@ -140,7 +140,7 @@ class Contrastive_STL10_w_CortMagnif(Dataset):
     def __init__(self, dataset_dir=r"/scratch1/fs1/crponce/Datasets", \
         transform=None, split="unlabeled", n_views=2,
         crop=False, magnif=False, sal_sample=False, sal_control=False,
-        memmap=False):
+        memmap=False, views_by_epoch=None):
         """
         Args:
             dataset_dir (string): Directory with all the images. E:\Datasets
@@ -152,15 +152,15 @@ class Contrastive_STL10_w_CortMagnif(Dataset):
                                  transform=None,)
 
         self.salmaps = np.load(join(dataset_dir, "stl10_unlabeled_salmaps_salicon.npy"),
-                            #    allow_pickle=True, 
+                               allow_pickle=True, 
                                mmap_mode="r" if memmap else None)
         assert len(self.dataset) == self.salmaps.shape[0]
 
-        # self.scanpath_arr = np.load(join(dataset_dir, "stl10_unlabeled_scanpath_deepgaze.npy"),
-        #                        allow_pickle=True, 
-        #                        mmap_mode="r" if memmap else None)
-        # self.scanpath_arr = np.floor(self.scanpath_arr / 255 * 95)
-        # # self.views_by_epoch = views_by_epoch 
+        self.scanpath_arr = np.load(join(dataset_dir, "stl10_unlabeled_scanpath_deepgaze.npy"),
+                               allow_pickle=True, 
+                               mmap_mode="r" if memmap else None)
+        self.scanpath_arr = np.floor(self.scanpath_arr / 255 * 95)
+        # self.views_by_epoch = views_by_epoch 
 
         self.root_dir = dataset_dir
         self.crop = crop
@@ -183,36 +183,36 @@ class Contrastive_STL10_w_CortMagnif(Dataset):
         self.current_epoch = epoch_id
         print(f'set current epoch to {epoch_id}')
 
-    # def views_by_epoch(self, i, epoch_idx):
-    #     epoch_view_one = np.arange(0, 20-1 - (1-1)) # nfix = 20, step_diff = 1
-    #     epoch_view_two = epoch_view_one + 1 # immediate neighbor fixation
+    def views_by_epoch(self, i, epoch_idx):
+        epoch_view_one = np.arange(0, 20-1 - (1-1)) # nfix = 20, step_diff = 1
+        epoch_view_two = epoch_view_one + 1 # immediate neighbor fixation
 
-    #     for step_diff in np.arange(2, 7+1): # start from skip neighbor fixation pairs
-    #       # print(step_diff)
-    #       tmp_one = np.arange(0, 20-1 - (step_diff-1))
-    #       tmp_two = tmp_one + step_diff
-    #       epoch_view_one = np.append(epoch_view_one, tmp_one)
-    #       epoch_view_two = np.append(epoch_view_two, tmp_two)
+        for step_diff in np.arange(2, 7+1): # start from skip neighbor fixation pairs
+          # print(step_diff)
+          tmp_one = np.arange(0, 20-1 - (step_diff-1))
+          tmp_two = tmp_one + step_diff
+          epoch_view_one = np.append(epoch_view_one, tmp_one)
+          epoch_view_two = np.append(epoch_view_two, tmp_two)
 
-    #     epoch_iview = np.vstack((epoch_view_one, epoch_view_two))
-    #     epoch_iview.shape # n_views = 2, n_epoch = 100, 
-    #     return epoch_iview[i, epoch_idx]
+        epoch_iview = np.vstack((epoch_view_one, epoch_view_two))
+        epoch_iview.shape # n_views = 2, n_epoch = 100, 
+        return epoch_iview[i, epoch_idx]
 
     def __getitem__(self, idx):
-        # if not isinstance(idx, int): # if index is not just an int, but longer (a list)
-        #   # epoch_idx = idx[-1] # then it contains epoch number
-        #   epoch_idx = self.current_epoch
-        #   idx = idx[0]
-        #   # print(f'__getitem__ get epoch number {epoch_idx}, image no.{idx}')
-        # else:
-        #   epoch_idx = self.current_epoch
-        #   # print(f'single index. get current epoch number {epoch_idx}')
+        if not isinstance(idx, int): # if index is not just an int, but longer (a list)
+          # epoch_idx = idx[-1] # then it contains epoch number
+          epoch_idx = self.current_epoch
+          idx = idx[0]
+          # print(f'__getitem__ get epoch number {epoch_idx}, image no.{idx}')
+        else:
+          epoch_idx = self.current_epoch
+          # print(f'single index. get current epoch number {epoch_idx}')
 
         img, label = self.dataset.__getitem__(idx) # img is PIL.Image, label is xxxx
         salmap = self.salmaps[idx, :, :, :].astype('float')  # numpy.ndarray
         salmap_tsr = torch.tensor(salmap).unsqueeze(0).float()  #F.interpolate(, [96, 96])
 
-        # scanpath_idx = self.scanpath_arr[idx, :, :]
+        scanpath_idx = self.scanpath_arr[idx, :, :]
 
         if self.sal_control: 
             print("Use flat salincy map as control")
@@ -226,27 +226,26 @@ class Contrastive_STL10_w_CortMagnif(Dataset):
             imgs = views
 
         if self.magnif and self.magnifier is not None:
-            finalviews = [self.magnifier(img, salmap_tsr) for img in imgs]
-        #   if (self.n_views == 2) and (~np.isnan(epoch_idx)):
-        #     # print(f'epoch is {epoch_idx}, image is {idx}')
-        #     # print(scanpath_idx[0,:])
-        #     # print(scanpath_idx[7,:])
-        #     # print(self.n_views)
-        #     # print(epoch_idx)
-        #     # print(self.views_by_epoch)
-        #     # print(self.magnifier)
-        #     # print(salmap_tsr)
-        #     # print(type(imgs))
+          if (self.n_views == 2) and (~np.isnan(epoch_idx)):
+            # print(f'epoch is {epoch_idx}, image is {idx}')
+            # print(scanpath_idx[0,:])
+            # print(scanpath_idx[7,:])
+            # print(self.n_views)
+            # print(epoch_idx)
+            # print(self.views_by_epoch)
+            # print(self.magnifier)
+            # print(salmap_tsr)
+            # print(type(imgs))
 
-        #     finalviews = [self.magnifier(imgs[i], salmap_tsr, \
-        #                   scanpath_idx[self.views_by_epoch(i, epoch_idx), :]) \
-        #                   for i in range(self.n_views)]
-        #     # print('views_by_epoch function found\n')
-        #   else:
-        #     # print(idx)
-        #     # print('no epoch, only use image index to determine views\n')
-        #     # finalviews = [self.magnifier(img, salmap_tsr, scanpath_idx) for img in imgs]
-        #     finalviews = [self.magnifier(imgs[i], salmap_tsr, scanpath_idx[i,:]) for i in range(self.n_views)]
+            finalviews = [self.magnifier(imgs[i], salmap_tsr, \
+                          scanpath_idx[self.views_by_epoch(i, epoch_idx),:]) \
+                          for i in range(self.n_views)]
+            # print('views_by_epoch function found\n')
+          else:
+            print(idx)
+            # print('no epoch, only use image index to determine views\n')
+            # finalviews = [self.magnifier(img, salmap_tsr, scanpath_idx) for img in imgs]
+            finalviews = [self.magnifier(imgs[i], salmap_tsr, scanpath_idx[i,:]) for i in range(self.n_views)]
         else:
             finalviews = imgs
 
@@ -260,13 +259,14 @@ class Contrastive_STL10_w_CortMagnif(Dataset):
         tfm_list = []
         if crop:
             tfm_list += [transforms.RandomResizedCrop(96)]
-        tfm_list += [transforms.RandomHorizontalFlip(),
-                    #  transforms.RandomApply([color_jitter], p=0.8),
-                    #  transforms.RandomGrayscale(p=0.2),
+        tfm_list += [
+                    transforms.RandomHorizontalFlip(),
+                     transforms.RandomApply([color_jitter], p=0.8),
+                     transforms.RandomGrayscale(p=0.2),
                      transforms.ToTensor()
                      ]  # hard to do foveation without having a tensor
-        # if blur:
-        #     tfm_list.append(GaussianBlur(kernel_size=int(0.1 * size), return_PIL=False))
+        if blur:
+            tfm_list.append(GaussianBlur(kernel_size=int(0.1 * size), return_PIL=False))
         data_transforms = transforms.Compose(tfm_list)
         # transforms.Compose([transforms.Normalize(mean=(0.4914, 0.4822, 0.4465),
         #                                          std=(0.2023, 0.1994, 0.2010))])
