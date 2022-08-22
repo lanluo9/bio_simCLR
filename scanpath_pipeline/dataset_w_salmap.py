@@ -158,7 +158,7 @@ class Contrastive_STL10_w_CortMagnif(Dataset):
         self.scanpath_arr = np.load(join(dataset_dir, "stl10_unlabeled_scanpath_deepgaze.npy"),
                                mmap_mode="r" if memmap else None)
         self.scanpath_arr = np.floor(self.scanpath_arr / 255 * 95)
-        self.views_by_epoch = views_by_epoch 
+        # self.views_by_epoch = views_by_epoch 
 
         self.root_dir = dataset_dir
         self.crop = crop
@@ -176,9 +176,25 @@ class Contrastive_STL10_w_CortMagnif(Dataset):
 
     def __len__(self):
         return len(self.dataset)
+
     def set_epoch(self, epoch_id):
         self.current_epoch = epoch_id
         print(f'set current epoch to {epoch_id}')
+
+    def views_by_epoch(self, i, epoch_idx):
+        epoch_view_one = np.arange(0, 20-1 - (1-1)) # nfix = 20, step_diff = 1
+        epoch_view_two = epoch_view_one + 1 # immediate neighbor fixation
+
+        for step_diff in np.arange(2, 7+1): # start from skip neighbor fixation pairs
+          # print(step_diff)
+          tmp_one = np.arange(0, 20-1 - (step_diff-1))
+          tmp_two = tmp_one + step_diff
+          epoch_view_one = np.append(epoch_view_one, tmp_one)
+          epoch_view_two = np.append(epoch_view_two, tmp_two)
+
+        epoch_iview = np.vstack((epoch_view_one, epoch_view_two))
+        epoch_iview.shape # n_views = 2, n_epoch = 100, 
+        return epoch_iview[i, epoch_idx]
 
     def __getitem__(self, idx):
         if not isinstance(idx, int): # if index is not just an int, but longer (a list)
@@ -212,6 +228,13 @@ class Contrastive_STL10_w_CortMagnif(Dataset):
             # print(f'epoch is {epoch_idx}, image is {idx}')
             # print(scanpath_idx[0,:])
             # print(scanpath_idx[7,:])
+            # print(self.n_views)
+            # print(epoch_idx)
+            # print(self.views_by_epoch)
+            # print(self.magnifier)
+            # print(salmap_tsr)
+            # print(type(imgs))
+
             finalviews = [self.magnifier(imgs[i], salmap_tsr, \
                           scanpath_idx[self.views_by_epoch(i, epoch_idx),:]) \
                           for i in range(self.n_views)]
