@@ -260,7 +260,7 @@ class Contrastive_STL10_w_CortMagnif(Dataset):
         if crop:
             tfm_list += [transforms.RandomResizedCrop(96)]
         tfm_list += [
-                    # transforms.RandomHorizontalFlip(),
+                    transforms.RandomHorizontalFlip(),
                     #  transforms.RandomApply([color_jitter], p=0.8),
                     #  transforms.RandomGrayscale(p=0.2),
                      transforms.ToTensor()
