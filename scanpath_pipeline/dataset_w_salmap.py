@@ -152,10 +152,12 @@ class Contrastive_STL10_w_CortMagnif(Dataset):
                                  transform=None,)
 
         self.salmaps = np.load(join(dataset_dir, "stl10_unlabeled_salmaps_salicon.npy"),
+                               allow_pickle=True, 
                                mmap_mode="r" if memmap else None)
         assert len(self.dataset) == self.salmaps.shape[0]
 
         self.scanpath_arr = np.load(join(dataset_dir, "stl10_unlabeled_scanpath_deepgaze.npy"),
+                               allow_pickle=True, 
                                mmap_mode="r" if memmap else None)
         self.scanpath_arr = np.floor(self.scanpath_arr / 255 * 95)
         # self.views_by_epoch = views_by_epoch 
