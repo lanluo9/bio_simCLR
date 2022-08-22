@@ -261,12 +261,12 @@ class Contrastive_STL10_w_CortMagnif(Dataset):
         if crop:
             tfm_list += [transforms.RandomResizedCrop(96)]
         tfm_list += [transforms.RandomHorizontalFlip(),
-                     transforms.RandomApply([color_jitter], p=0.8),
-                     transforms.RandomGrayscale(p=0.2),
+                    #  transforms.RandomApply([color_jitter], p=0.8),
+                    #  transforms.RandomGrayscale(p=0.2),
                      transforms.ToTensor()
                      ]  # hard to do foveation without having a tensor
-        if blur:
-            tfm_list.append(GaussianBlur(kernel_size=int(0.1 * size), return_PIL=False))
+        # if blur:
+        #     tfm_list.append(GaussianBlur(kernel_size=int(0.1 * size), return_PIL=False))
         data_transforms = transforms.Compose(tfm_list)
         # transforms.Compose([transforms.Normalize(mean=(0.4914, 0.4822, 0.4465),
         #                                          std=(0.2023, 0.1994, 0.2010))])
