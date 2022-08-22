@@ -1,3 +1,71 @@
+# python run_magnif_mod.py -data /content/Dataset -dataset-name stl10 \
+#     --workers 16 --log_root /content/Foveated_Saccade_SimCLR-dev/runs  --randomize_seed \
+#     --ckpt_every_n_epocs 5 --epochs 100  --batch-size 256  --out_dim 256  \
+#     --run_label test  --magnif \
+#     --disable_blur  --cover_ratio 0.05 0.35  --fov_size 20 \
+#     --gridfunc_form radial_quad  --sample_temperature 1.5  --sampling_bdr 16 \
+#     --K 20  --temperature 0.07
+
+import argparse
+import sys
+import os
+import shutil
+import glob
+import gc
+
+dir_now = '/content/'
+os.chdir(dir_now)
+
+print('\ndownload Foveated_Saccade_SimCLR\n')
+os.system('wget https://github.com/Animadversio/Foveated_Saccade_SimCLR/archive/refs/heads/dev.zip')
+shutil.unpack_archive('dev.zip', dir_now)
+os.remove('dev.zip')
+sys.path.append(os.path.join(dir_now, 'Foveated_Saccade_SimCLR-dev'))
+
+print('\ndownload revision in bio_simclr\n')
+os.system('wget https://github.com/lanluo9/bio_simCLR/archive/refs/heads/master.zip')
+shutil.unpack_archive('master.zip', dir_now)
+os.remove('master.zip')
+
+print('\nreplacing revised files\n')
+file_orig_dir = os.path.join(dir_now, 'bio_simCLR-master/scanpath_pipeline/')
+file_destination = os.path.join(dir_now, 'Foveated_Saccade_SimCLR-dev/data_aug')
+shutil.move(os.path.join(file_orig_dir, 'cort_magnif_tfm.py'), os.path.join(file_destination, 'cort_magnif_tfm.py'))
+shutil.move(os.path.join(file_orig_dir, 'dataset_w_salmap.py'), os.path.join(file_destination, 'dataset_w_salmap.py'))
+shutil.move(os.path.join(file_orig_dir, 'visualize_aug_dataset.py'), os.path.join(file_destination, 'visualize_aug_dataset.py'))
+
+file_destination = os.path.join(dir_now, 'Foveated_Saccade_SimCLR-dev/')
+shutil.move(os.path.join(file_orig_dir, 'run_magnif.py'), os.path.join(file_destination, 'run_magnif.py'))
+shutil.move(os.path.join(file_orig_dir, 'simclr.py'), os.path.join(file_destination, 'simclr.py'))
+
+print('\npip install kornia & gdown\n')
+import subprocess
+import sys
+def install(package):
+    subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+install("kornia")
+install("gdown")
+import gdown
+
+print('\ndownload predicted scanpath\n')
+data_path = os.path.join(dir_now, 'Dataset')
+if not os.path.exists(data_path):
+  os.mkdir(data_path)
+os.chdir(data_path)
+url = "https://drive.google.com/uc?id=1-2QtN-V8IYA5qGH5R1zbN53K3u2aOhPE"
+output = "stl10_unlabeled_scanpath_deepgaze.npy"
+gdown.download(url, output, quiet=False)
+
+print('\ndownload predicted saliency map\n')
+url = "https://drive.google.com/uc?id=1cXp7Qg0O23lGyYnjS1a7oUCOY8hw3ckn"
+output = "stl10_unlabeled_salmaps_salicon.npy"
+gdown.download(url, output, quiet=False)
+
+os.chdir(os.path.join(dir_now, 'Foveated_Saccade_SimCLR-dev'))
+print(f'\ncurrent directory: {os.getcwd()}\n')
+
+##############################################
+
 import argparse
 import torch
 import torch.backends.cudnn as cudnn
@@ -180,8 +248,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
-
-

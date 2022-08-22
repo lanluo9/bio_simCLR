@@ -140,7 +140,7 @@ class Contrastive_STL10_w_CortMagnif(Dataset):
     def __init__(self, dataset_dir=r"/scratch1/fs1/crponce/Datasets", \
         transform=None, split="unlabeled", n_views=2,
         crop=False, magnif=False, sal_sample=False, sal_control=False,
-        memmap=False, views_by_epoch=None):
+        memmap=False):
         """
         Args:
             dataset_dir (string): Directory with all the images. E:\Datasets
@@ -238,11 +238,11 @@ class Contrastive_STL10_w_CortMagnif(Dataset):
             # print(type(imgs))
 
             finalviews = [self.magnifier(imgs[i], salmap_tsr, \
-                          scanpath_idx[self.views_by_epoch(i, epoch_idx),:]) \
+                          scanpath_idx[self.views_by_epoch(i, epoch_idx), :]) \
                           for i in range(self.n_views)]
             # print('views_by_epoch function found\n')
           else:
-            print(idx)
+            # print(idx)
             # print('no epoch, only use image index to determine views\n')
             # finalviews = [self.magnifier(img, salmap_tsr, scanpath_idx) for img in imgs]
             finalviews = [self.magnifier(imgs[i], salmap_tsr, scanpath_idx[i,:]) for i in range(self.n_views)]
