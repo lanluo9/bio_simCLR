@@ -82,6 +82,10 @@ def img_cortical_magnif_tsr(imgtsr, pnt, grid_func, demo=True):
     ecc_color = (ecc_color - ecc_color.min()) / (ecc_color.max() - ecc_color.min()) # normalize to 0-1. distance from fixation point
     # img_cm = img_cm_gray 
     img_cm = img_cm * ecc_color + img_cm_gray * (1-ecc_color)
+    # print(img_cm.dtype)
+    # img_cm.to(dtype=torch.float)
+    img_cm = img_cm.type(torch.FloatTensor)
+    # print(img_cm.dtype)
 
     if demo:
         # % Visualize the Manified plot.
