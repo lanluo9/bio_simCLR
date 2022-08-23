@@ -32,10 +32,8 @@ file_orig_dir = os.path.join(dir_now, 'bio_simCLR-master/scanpath_pipeline/')
 file_destination = os.path.join(dir_now, 'Foveated_Saccade_SimCLR-dev/data_aug')
 shutil.move(os.path.join(file_orig_dir, 'cort_magnif_tfm.py'), os.path.join(file_destination, 'cort_magnif_tfm.py'))
 shutil.move(os.path.join(file_orig_dir, 'dataset_w_salmap.py'), os.path.join(file_destination, 'dataset_w_salmap.py'))
-shutil.move(os.path.join(file_orig_dir, 'visualize_aug_dataset.py'), os.path.join(file_destination, 'visualize_aug_dataset.py'))
 
 file_destination = os.path.join(dir_now, 'Foveated_Saccade_SimCLR-dev/')
-shutil.move(os.path.join(file_orig_dir, 'run_magnif.py'), os.path.join(file_destination, 'run_magnif.py'))
 shutil.move(os.path.join(file_orig_dir, 'simclr.py'), os.path.join(file_destination, 'simclr.py'))
 
 print('\npip install kornia & gdown\n')
@@ -52,19 +50,20 @@ data_path = os.path.join(dir_now, 'Dataset')
 if not os.path.exists(data_path):
   os.mkdir(data_path)
 os.chdir(data_path)
-url = "https://drive.google.com/uc?id=1-2QtN-V8IYA5qGH5R1zbN53K3u2aOhPE"
-output = "stl10_unlabeled_scanpath_deepgaze.npy"
+url = "https://drive.google.com/uc?id=1t5ka0_gEQSxjgDxZclw_y0eZffUb8M0r"
+output = "stl10_unlabeled_scanpath_deepgaze.npy" # added inhibition of return
 gdown.download(url, output, quiet=False)
 
 print('\ndownload predicted saliency map\n')
 url = "https://drive.google.com/uc?id=1cXp7Qg0O23lGyYnjS1a7oUCOY8hw3ckn"
+# url = "https://drive.google.com/uc?id=1UybYg2VkZcO5q4Z4Y5lWJ12q0sG88-Hk"
 output = "stl10_unlabeled_salmaps_salicon.npy"
 gdown.download(url, output, quiet=False)
 
 os.chdir(os.path.join(dir_now, 'Foveated_Saccade_SimCLR-dev'))
 print(f'\ncurrent directory: {os.getcwd()}\n')
 
-##############################################
+############################################## below is original run_magnif.py
 
 import argparse
 import torch

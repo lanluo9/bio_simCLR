@@ -159,7 +159,7 @@ class Contrastive_STL10_w_CortMagnif(Dataset):
         self.scanpath_arr = np.load(join(dataset_dir, "stl10_unlabeled_scanpath_deepgaze.npy"),
                                allow_pickle=True, 
                                mmap_mode="r" if memmap else None)
-        self.scanpath_arr = np.floor(self.scanpath_arr / 255 * 95)
+        # self.scanpath_arr = np.floor(self.scanpath_arr / 255 * 95) # fixed in scanpath generation
         # self.views_by_epoch = views_by_epoch 
 
         self.root_dir = dataset_dir
