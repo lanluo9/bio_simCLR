@@ -4,11 +4,17 @@
 #     --run_label test  --magnif \
 #     --disable_blur  --cover_ratio 0.05 0.35  --fov_size 20 \
 #     --gridfunc_form radial_quad  --sample_temperature 1.5  --sampling_bdr 16 \
-#     --K 20  --temperature 0.07
+#     --K 20  --temperature 0.07 --gpu_number 0
 
 import argparse
-import sys
+parser = argparse.ArgumentParser(description='PyTorch SimCLR')
+parser.add_argument('--gpu_number', default='0',
+                    help='gpu id, from 0 to 6, as a string')
 import os
+args = parser.parse_args()
+os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu_number
+
+import sys
 import shutil
 import glob
 import gc
@@ -65,7 +71,7 @@ print(f'\ncurrent directory: {os.getcwd()}\n')
 
 ############################################## below is original run_magnif.py
 
-import argparse
+
 import torch
 import torch.backends.cudnn as cudnn
 from torchvision import models
@@ -77,7 +83,6 @@ model_names = sorted(name for name in models.__dict__
                      if name.islower() and not name.startswith("__")
                      and callable(models.__dict__[name]))
 
-parser = argparse.ArgumentParser(description='PyTorch SimCLR')
 parser.add_argument('-data', metavar='DIR', default='./datasets',
                     help='path to dataset')
 parser.add_argument('-dataset-name', default='stl10',
